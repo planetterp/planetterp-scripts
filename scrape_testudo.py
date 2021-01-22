@@ -20,7 +20,11 @@ class Section():
     # a string (ex: ENGL393 section ESG1). We make all section ids strings for
     # homogeneity, and call them "names" instead of ids.
     section_name: str
-    instructor: str
+    instructors: list["Instructor"]
+
+@dataclass
+class Instructor():
+    instructor_name: str
 
 @dataclass
 class Snapshot():
@@ -64,9 +68,8 @@ DEPARTMNETS = ["INST", "MUSC", "THET", "NFSC", "AASP", "ENGL", "MIEH", "ENME",
     "AAPS", "BERC", "DATA", "MSML", "PHPE", "NEUR", "HNUH", "SMLP", "BMSO",
     "AGST", "CHSE", "ENEB", "IMDM", "MSBB"]
 
-DEPARTMNETS = ["CMSC"]
 courses_regex = re.compile("^[A-Z]{4}\d{3,}")
-
+DEPARTMNETS = ["INST", "MUSC", "THET"]
 
 db.create_db()
 
@@ -102,7 +105,10 @@ def take_snapshot():
                 # section name usually/always has tons of whitespace around it
                 # for whatever reason, so strip it
                 section_name = section.find(class_="section-id").string.strip()
-                instructor = section.find(class_="section-instructor").string
+                # there could be multiple instructors, and if there are each
+                # gets its own section-instructor class div
+                instructors = section.find_all(class_="section-instructor")
+                instructors = [Instructor(inst.string) for inst in instructors]
                 total_seats = int(section.find(class_="total-seats-count").string)
                 open_seats = int(section.find(class_="open-seats-count").string)
 
@@ -123,7 +129,7 @@ def take_snapshot():
                     waitlist_size = int(waitlist_elems[0].string)
                     holdfile_size = int(waitlist_elems[1].string)
 
-                section = Section(section_name, instructor)
+                section = Section(section_name, instructors)
                 snapshot = Snapshot(course_name, section_name, total_seats,
                     open_seats, waitlist_size, holdfile_size)
                 sections.append(section)
