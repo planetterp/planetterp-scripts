@@ -82,8 +82,8 @@ def take_snapshot():
 
         courses_page = soup.find(id="courses-page")
 
-        # some departments aren't offering any courses this semester, so move on if
-        # this is the case
+        # some departments aren't offering any courses this semester, so move on
+        # if this is the case
         if courses_page.find(class_="no-courses-message"):
             department = Department(department, [])
             departments.append(department)
