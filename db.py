@@ -96,6 +96,7 @@ def add_department_if_not_exists(department):
             add_section_if_not_exists(course.course_name, section)
 
             for instructor in section.instructors:
+                add_instructor_if_not_exists(instructor)
                 link_instructor_and_section_if_not_linked(instructor, section)
 
 def add_course_if_not_exists(department_name, course):
@@ -105,6 +106,11 @@ def add_course_if_not_exists(department_name, course):
 def add_section_if_not_exists(course_name, section):
     cursor.execute("INSERT IGNORE INTO sections(section_name, course_name) "
         "VALUES (%s, %s)", (section.section_name, course_name))
+
+
+def add_instructor_if_not_exists(instructor):
+    cursor.execute("INSERT IGNORE INTO instructors(instructor_name) VALUES "
+        "(%s)", (instructor.instructor_name))
 
 def link_instructor_and_section_if_not_linked(instructor, section):
     cursor.execute("INSERT IGNORE INTO instructors_sections(instructor_name, "
