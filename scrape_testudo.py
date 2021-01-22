@@ -70,8 +70,6 @@ DEPARTMNETS = ["INST", "MUSC", "THET", "NFSC", "AASP", "ENGL", "MIEH", "ENME",
 
 courses_regex = re.compile("^[A-Z]{4}\d{3,}")
 
-db.create_db()
-
 def take_snapshot():
     departments = []
     snapshots = []

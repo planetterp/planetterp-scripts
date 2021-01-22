@@ -73,6 +73,7 @@ def create_db():
     conn.commit()
     conn.close()
 
+# make the db if it doesn't exist
 create_db()
 
 conn = pymysql.connect(host="localhost", database="testudo_courses",
