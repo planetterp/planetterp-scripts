@@ -69,7 +69,6 @@ DEPARTMNETS = ["INST", "MUSC", "THET", "NFSC", "AASP", "ENGL", "MIEH", "ENME",
     "AGST", "CHSE", "ENEB", "IMDM", "MSBB"]
 
 courses_regex = re.compile("^[A-Z]{4}\d{3,}")
-DEPARTMNETS = ["INST", "MUSC", "THET"]
 
 db.create_db()
 
@@ -86,8 +85,7 @@ def take_snapshot():
         # some departments aren't offering any courses this semester, so move on if
         # this is the case
         if courses_page.find(class_="no-courses-message"):
-            print(f"{department} is not offering any classes")
-            department = Department(department)
+            department = Department(department, [])
             departments.append(department)
             continue
 
