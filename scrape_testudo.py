@@ -103,8 +103,8 @@ def take_snapshot():
                 # section name usually/always has tons of whitespace around it
                 # for whatever reason, so strip it
                 section_name = section.find(class_="section-id").string.strip()
-                # there could be multiple instructors, and if there are each
-                # gets its own section-instructor class div
+                # there could be multiple instructors, each one will have its
+                # own section-instructor class div
                 instructors = section.find_all(class_="section-instructor")
                 instructors = [Instructor(inst.string) for inst in instructors]
                 total_seats = int(section.find(class_="total-seats-count").string)
