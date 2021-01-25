@@ -90,10 +90,11 @@ def take_snapshot():
                 print(f"{datetime.now()} Exception while loading url {url}: {e}. Waiting for 10 seconds then retrying.")
                 time.sleep(10)
 
-
         soup = BeautifulSoup(text, features="lxml")
 
         courses_page = soup.find(id="courses-page")
+        if not courses_page:
+            print(f"courses page element could not be found. Page html: {soup}")
 
         # some departments aren't offering any courses this semester, so move on
         # if this is the case
