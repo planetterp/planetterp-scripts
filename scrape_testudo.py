@@ -81,20 +81,23 @@ def take_snapshot():
     for department in DEPARTMNETS:
         print(f"{datetime.now()} loading department {department}")
         url = COURSES_URL.format(department)
-        loaded_url = False
-        while not loaded_url:
+        loaded = False
+        while not loaded:
             try:
                 text = requests.get(url).text
-                loaded_url = True
             except Exception as e:
                 print(f"{datetime.now()} Exception while loading url {url}: {e}. Waiting for 10 seconds then retrying.")
                 time.sleep(10)
+                continue
 
-        soup = BeautifulSoup(text, features="lxml")
+            soup = BeautifulSoup(text, features="lxml")
+            courses_page = soup.find(id="courses-page")
+            if not courses_page:
+                print(f"courses page element could not be found. Page html: {soup}. Waiting for 10 seconds then retrying.")
+                time.sleep(10)
+                continue
 
-        courses_page = soup.find(id="courses-page")
-        if not courses_page:
-            print(f"courses page element could not be found. Page html: {soup}")
+            loaded = True
 
         # some departments aren't offering any courses this semester, so move on
         # if this is the case
