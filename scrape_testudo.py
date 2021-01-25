@@ -93,7 +93,7 @@ def take_snapshot():
             soup = BeautifulSoup(text, features="lxml")
             courses_page = soup.find(id="courses-page")
             if not courses_page:
-                print(f"courses page element could not be found. Page html: {soup}. Waiting for 10 seconds then retrying.")
+                print(f"{datetime.now()} courses page element could not be found. Page html: {soup}. Waiting for 10 seconds then retrying.")
                 time.sleep(10)
                 continue
 
