@@ -1,6 +1,7 @@
 import re
 from dataclasses import dataclass
 import time
+from datetime import datetime
 
 from bs4 import BeautifulSoup
 import requests
@@ -78,7 +79,7 @@ def take_snapshot():
     departments = []
     snapshots = []
     for department in DEPARTMNETS:
-        print(f"loading department {department}")
+        print(f"{datetime.now()} loading department {department}")
         url = COURSES_URL.format(department)
         loaded_url = False
         while not loaded_url:
@@ -86,7 +87,7 @@ def take_snapshot():
                 text = requests.get(url).text
                 loaded_url = True
             except Exception as e:
-                print(f"Exception while loading url {url}: {e}. Waiting for 10 seconds then retrying.")
+                print(f"{datetime.now()} Exception while loading url {url}: {e}. Waiting for 10 seconds then retrying.")
                 time.sleep(10)
 
 
@@ -153,11 +154,17 @@ def take_snapshot():
 
     return (departments, snapshots)
 
+print(f"{datetime.now()} taking snapshot")
 (departments, snapshots) = take_snapshot()
+print(f"{datetime.now()} starting saving")
+print(f"{datetime.now()} saving departments")
 for department in departments:
     db.add_department_if_not_exists(department)
 
+print(f"{datetime.now()} saving snapshots")
 for snapshot in snapshots:
     db.save_snapshot(snapshot)
 
+print(f"{datetime.now()} saved, committing")
 db.commit()
+print(f"{datetime.now()} committed")
