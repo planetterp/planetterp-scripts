@@ -1,8 +1,12 @@
-from bs4 import BeautifulSoup
-import requests
 import re
 from dataclasses import dataclass
+import time
+
+from bs4 import BeautifulSoup
+import requests
+
 import db
+
 
 @dataclass
 class Department():
@@ -74,8 +78,18 @@ def take_snapshot():
     departments = []
     snapshots = []
     for department in DEPARTMNETS:
+        print(f"loading department {department}")
         url = COURSES_URL.format(department)
-        text = requests.get(url).text
+        loaded_url = False
+        while not loaded_url:
+            try:
+                text = requests.get(url).text
+                loaded_url = True
+            except Exception as e:
+                print(f"Exception while loading url {url}: {e}. Waiting for 10 seconds then retrying.")
+                time.sleep(10)
+
+
         soup = BeautifulSoup(text, features="lxml")
 
         courses_page = soup.find(id="courses-page")
