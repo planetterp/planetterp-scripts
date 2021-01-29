@@ -1,24 +1,49 @@
-import pymysql
 import requests
+from pathlib import Path
+from datetime import datetime
+import logging
+
+from doltpy.core import Dolt, DoltException
+
+# A note: dolt only implements a subset of the mysql standard, and a small one
+# at that. This means that conveniences like "SELECT EXISTS" and
+# "ON DUPLICATE KEY UPDATE" are not implemented and we must work around them.
+
+# dolt logs a lot of stuff (especially since we're sort of abusing their sql
+# function by executing commands I know have a good chance of erroring) and is
+# probably slowing us down.
+logging.getLogger("dolt").setLevel(logging.ERROR)
+logging.getLogger("doltpy").setLevel(logging.ERROR)
+
+try:
+    dolt = Dolt(Path(__file__).parent)
+except AssertionError:
+    # this is what doltpy throws when the dir isn't a dolt repo, so now we init
+    dolt = Dolt.init(Path(__file__).parent)
+
+DB = "testudo_courses_dolt"
 
 def create_db():
-    conn = pymysql.connect(host="localhost", user="root", password="")
-    cursor = conn.cursor()
-    cursor.execute("CREATE DATABASE IF NOT EXISTS testudo_courses")
-    conn.close()
+    # work around for https://github.com/dolthub/dolt/issues/1275
+    res = dolt.sql(f"""
+        SELECT count(*)
+        FROM information_schema.TABLES
+        WHERE (TABLE_NAME = 'departments')
+    """, result_format="json")
+    res = res["rows"][0]["COUNT(*)"]
+    # if one table exists, assume they all do and don't create any
+    if res:
+        return
 
-    conn = pymysql.connect(host="localhost", database="testudo_courses",
-        user="root", password="")
-    cursor = conn.cursor()
-
-    cursor.execute("""
+    dolt.sql("""
         CREATE TABLE IF NOT EXISTS departments (
             department_name VARCHAR(4) PRIMARY KEY,
 	        created TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
         );
     """)
 
-    cursor.execute("""
+
+    dolt.sql("""
         CREATE TABLE IF NOT EXISTS courses (
 	        course_name VARCHAR(10) PRIMARY KEY,
             department_name VARCHAR(4) NOT NULL,
@@ -28,10 +53,15 @@ def create_db():
         );
     """)
 
-    cursor.execute("""
+    dolt.sql("""
         CREATE TABLE IF NOT EXISTS sections (
 	        section_name VARCHAR(10) NOT NULL,
             course_name VARCHAR(10) NOT NULL,
+            instructor_names TINYTEXT NOT NULL,
+            total_seats INT NOT NULL,
+            open_seats INT NOT NULL,
+            waitlist_size INT NOT NULL,
+            holdfile_size INT NOT NULL,
             created TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
             PRIMARY KEY (course_name, section_name),
             KEY fk_course_idx (course_name),
@@ -39,91 +69,69 @@ def create_db():
         );
     """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS instructors (
-	        instructor_name VARCHAR(256) PRIMARY KEY,
-            created TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-        );
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS instructors_sections (
-	        instructor_name VARCHAR(256) NOT NULL,
-            section_name VARCHAR(10) NOT NULL,
-            PRIMARY KEY (instructor_name, section_name),
-            created TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-        );
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS snapshots (
-	        id INT AUTO_INCREMENT PRIMARY KEY,
-	        total_seats INT NOT NULL,
-            open_seats INT NOT NULL,
-            waitlist_size INT NOT NULL,
-            holdfile_size INT NOT NULL,
-            course_name VARCHAR(10) NOT NULL,
-            section_name VARCHAR(10) NOT NULL,
-	        created TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-            KEY fk_course_section_idx (section_name),
-            CONSTRAINT fk_course_section FOREIGN KEY (course_name, section_name) REFERENCES sections (course_name, section_name)
-        );
-    """)
-
-    conn.commit()
-    conn.close()
-
-# make the db if it doesn't exist
+# ensure the db exists
 create_db()
 
-conn = pymysql.connect(host="localhost", database="testudo_courses",
-    user="root", password="")
-cursor = conn.cursor()
 
 
-def add_department_if_not_exists(department):
+
+def write_department(department):
     """
-    The entry point from the scraping code into the db for initializing
-    departments, courses, and sections.
+    The entry point from the scraping code into the db for writing departments,
+    courses, and sections.
     """
 
-    cursor.execute("INSERT IGNORE INTO departments(department_name) "
-        "VALUES (%s)", (department.department_name))
+    # checking for duplicates is expensive, just ignore them if they occur
+    try:
+        dolt.sql("INSERT INTO departments(department_name) "
+            f"VALUES (\"{department.department_name}\")")
+    except DoltException as e:
+        if not "duplicate primary key" in str(e):
+            raise e
+
+
+    # doltpy doesn't implement batching, so batch manually
+    course_batch = []
+    section_batch = []
 
     for course in department.courses:
-        add_course_if_not_exists(department.department_name, course)
+        write_course_to_batch(department.department_name, course, course_batch)
 
         for section in course.sections:
-            add_section_if_not_exists(course.course_name, section)
-
-            for instructor in section.instructors:
-                add_instructor_if_not_exists(instructor)
-                link_instructor_and_section_if_not_linked(instructor, section)
-
-def add_course_if_not_exists(department_name, course):
-    cursor.execute("INSERT IGNORE INTO courses(course_name, department_name)"
-        "VALUES (%s, %s)", (course.course_name, department_name))
-
-def add_section_if_not_exists(course_name, section):
-    cursor.execute("INSERT IGNORE INTO sections(section_name, course_name) "
-        "VALUES (%s, %s)", (section.section_name, course_name))
+            write_section_to_batch(course.course_name, section, section_batch)
 
 
-def add_instructor_if_not_exists(instructor):
-    cursor.execute("INSERT IGNORE INTO instructors(instructor_name) VALUES "
-        "(%s)", (instructor.instructor_name))
+    # since we're using batch we don't get told what error occurs, just that one
+    # did occur, so ignore all exceptions (unfortunately).
+    try:
+        dolt.sql(";".join(course_batch), batch=True)
+        dolt.sql(";".join(section_batch), batch=True)
+    except DoltException:
+        pass
 
-def link_instructor_and_section_if_not_linked(instructor, section):
-    cursor.execute("INSERT IGNORE INTO instructors_sections(instructor_name, "
-        "section_name) VALUES (%s, %s)", (instructor.instructor_name,
-        section.section_name))
 
-def save_snapshot(snapshot):
-    cursor.execute("INSERT INTO snapshots(total_seats, open_seats, "
-        "waitlist_size, holdfile_size, course_name, section_name) VALUES "
-        "(%s, %s, %s, %s, %s, %s)", (snapshot.total_seats, snapshot.open_seats,
-        snapshot.waitlist_size, snapshot.holdfile_size, snapshot.course_name,
-        snapshot.section_name))
+def write_course_to_batch(department_name, course, batch):
+    query = ("INSERT INTO courses(course_name, department_name) "
+        f"VALUES (\"{course.course_name}\", \"{department_name}\")")
+    batch.append(query)
 
-def commit():
-    conn.commit()
+
+def write_section_to_batch(course_name, section, batch):
+    query = ("INSERT INTO sections(section_name, course_name, "
+        "instructor_names, total_seats, open_seats, waitlist_size, "
+        f"holdfile_size) VALUES (\"{section.section_name}\", \"{course_name}\", "
+        f"\"{section.instructor_names}\", {section.total_seats}, "
+        f"{section.open_seats}, {section.waitlist_size}, "
+        f"{section.holdfile_size})")
+
+    batch.append(query)
+
+
+def commit(time_started):
+    time_ended = datetime.now()
+
+    # stage our tables
+    dolt.add(["departments", "courses", "sections"])
+    dolt.commit(f"add snapshot ({time_ended}).\n\n"
+        "Taken over the following time period: "
+        f"{time_started} to {time_ended}.", allow_empty=True)

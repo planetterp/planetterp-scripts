@@ -2,9 +2,11 @@ import re
 from dataclasses import dataclass
 import time
 from datetime import datetime
+import logging
 
 from bs4 import BeautifulSoup
 import requests
+from datetime import datetime
 
 import db
 
@@ -25,16 +27,7 @@ class Section():
     # a string (ex: ENGL393 section ESG1). We make all section ids strings for
     # homogeneity, and call them "names" instead of ids.
     section_name: str
-    instructors: list["Instructor"]
-
-@dataclass
-class Instructor():
-    instructor_name: str
-
-@dataclass
-class Snapshot():
-    course_name: str
-    section_name: str
+    instructor_names: str
     total_seats: int
     open_seats: int
     waitlist_size: int
@@ -123,7 +116,7 @@ def take_snapshot():
                 # there could be multiple instructors, each one will have its
                 # own section-instructor class div
                 instructors = section.find_all(class_="section-instructor")
-                instructors = [Instructor(inst.string) for inst in instructors]
+                instructor_names = ", ".join(inst.string for inst in instructors)
                 total_seats = int(section.find(class_="total-seats-count").string)
                 open_seats = int(section.find(class_="open-seats-count").string)
 
@@ -144,11 +137,9 @@ def take_snapshot():
                     waitlist_size = int(waitlist_elems[0].string)
                     holdfile_size = int(waitlist_elems[1].string)
 
-                section = Section(section_name, instructors)
-                snapshot = Snapshot(course_name, section_name, total_seats,
+                section = Section(section_name, instructor_names, total_seats,
                     open_seats, waitlist_size, holdfile_size)
                 sections.append(section)
-                snapshots.append(snapshot)
 
             course = Course(course_name, sections)
             courses.append(course)
@@ -159,16 +150,13 @@ def take_snapshot():
     return (departments, snapshots)
 
 print(f"{datetime.now()} taking snapshot")
+time_started = datetime.now()
 (departments, snapshots) = take_snapshot()
 print(f"{datetime.now()} starting saving")
 print(f"{datetime.now()} saving departments")
 for department in departments:
-    db.add_department_if_not_exists(department)
-
-print(f"{datetime.now()} saving snapshots")
-for snapshot in snapshots:
-    db.save_snapshot(snapshot)
+    db.write_department(department)
 
 print(f"{datetime.now()} saved, committing")
-db.commit()
+db.commit(time_started)
 print(f"{datetime.now()} committed")
