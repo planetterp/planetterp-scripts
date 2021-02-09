@@ -41,7 +41,7 @@ COURSES_URL = "https://app.testudo.umd.edu/soc/search?courseId={}&sectionId=" \
     "&courseEndHour=&courseEndMin=&courseEndAM=&teachingCenter=ALL" \
     "&_classDay1=on&_classDay2=on&_classDay3=on&_classDay4=on&_classDay5=on"
 
-DEPARTMNETS = ["INST", "MUSC", "THET", "NFSC", "AASP", "ENGL", "MIEH", "ENME",
+DEPARTMENTS = ["INST", "MUSC", "THET", "NFSC", "AASP", "ENGL", "MIEH", "ENME",
     "CPGH", "ARTH", "PSYC", "GERM", "PHYS", "STAT", "KNES", "BIOE", "GEMS",
     "COMM", "CMSC", "JWST", "UNIV", "TDPS", "DANC", "JOUR", "ENEE", "HEBR",
     "PERS", "ENCE", "RELS", "HIST", "SPAN", "PHIL", "SOCY", "CCJS", "GEOL",
@@ -71,7 +71,7 @@ courses_regex = re.compile("^[A-Z]{4}\d{3,}")
 def take_snapshot():
     departments = []
     snapshots = []
-    for department in DEPARTMNETS:
+    for department in DEPARTMENTS:
         print(f"{datetime.now()} loading department {department}")
         url = COURSES_URL.format(department)
         loaded = False
