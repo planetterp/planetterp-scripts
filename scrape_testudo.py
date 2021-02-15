@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass
 import time
 from datetime import datetime
+from typing import List
 
 from bs4 import BeautifulSoup
 import requests
@@ -12,12 +13,12 @@ import db
 @dataclass
 class Department():
     department_name: str
-    courses: list["Course"]
+    courses: List["Course"]
 
 @dataclass
 class Course():
     course_name: str
-    sections: list["Section"]
+    sections: List["Section"]
 
 @dataclass
 class Section():
@@ -25,7 +26,7 @@ class Section():
     # a string (ex: ENGL393 section ESG1). We make all section ids strings for
     # homogeneity, and call them "names" instead of ids.
     section_name: str
-    instructors: list["Instructor"]
+    instructors: List["Instructor"]
 
 @dataclass
 class Instructor():
