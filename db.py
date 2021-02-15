@@ -1,5 +1,4 @@
 import pymysql
-import requests
 
 def create_db():
     conn = pymysql.connect(host="localhost", user="root", password="")
