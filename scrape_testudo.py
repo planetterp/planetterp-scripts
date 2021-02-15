@@ -76,9 +76,8 @@ DEPARTMENTS = ["INST", "MUSC", "THET", "NFSC", "AASP", "ENGL", "MIEH", "ENME",
 courses_regex = re.compile("^[A-Z]{4}\d{3,}")
 
 def take_snapshot():
-    departments = []
-    snapshots = []
     for department in DEPARTMENTS:
+        snapshots = []
         print(f"{datetime.now()} loading department {department}")
         url = COURSES_URL.format(department)
         loaded = False
@@ -103,7 +102,7 @@ def take_snapshot():
         # if this is the case
         if courses_page.find(class_="no-courses-message"):
             department = Department(department, [])
-            departments.append(department)
+            yield (department, [])
             continue
 
         courses_soup = courses_page.find(class_="courses-container") \
@@ -154,21 +153,19 @@ def take_snapshot():
             courses.append(course)
 
         department = Department(department, courses)
-        departments.append(department)
+        yield (department, snapshots)
 
-    return (departments, snapshots)
 
 print(f"{datetime.now()} taking snapshot")
-(departments, snapshots) = take_snapshot()
-print(f"{datetime.now()} starting saving")
-print(f"{datetime.now()} saving departments")
-for department in departments:
+for (department, snapshots) in take_snapshot():
+    print(f"{datetime.now()} saving department {department.department_name} and {len(snapshots)} individual snapshots")
     db.add_department_if_not_exists(department)
 
-print(f"{datetime.now()} saving snapshots")
-for snapshot in snapshots:
-    db.save_snapshot(snapshot)
+    for snapshot in snapshots:
+        db.save_snapshot(snapshot)
 
-print(f"{datetime.now()} saved, committing")
-db.commit()
-print(f"{datetime.now()} committed")
+    print(f"{datetime.now()} saved {department.department_name}, committing")
+    db.commit()
+    print(f"{datetime.now()} committed")
+
+print(f"{datetime.now()} finished snapshot")
