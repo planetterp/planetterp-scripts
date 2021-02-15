@@ -3,7 +3,7 @@ import pymysql
 def create_db():
     conn = pymysql.connect(host="localhost", user="root", password="")
     cursor = conn.cursor()
-    cursor.execute("CREATE DATABASE IF NOT EXISTS testudo_courses")
+    cursor.execute("CREATE DATABASE IF NOT EXISTS testudo_courses CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci")
     conn.close()
 
     conn = pymysql.connect(host="localhost", database="testudo_courses",
